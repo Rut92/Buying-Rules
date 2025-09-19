@@ -147,10 +147,35 @@ st.dataframe(combined_df)
 
 # --- Download Buttons ---
 st.subheader("⬇️ Download Results")
+
+# Remove bold formatting for cost values
+combined_df["Total Annual Cost"] = combined_df["Total Annual Cost"].str.replace("**", "")
+
+# CSV export
 csv = combined_df.to_csv(index=False).encode('utf-8')
+
+# Excel export with 2 sheets
 excel_buffer = io.BytesIO()
-with pd.ExcelWriter(excel_buffer, engine='openpyxl') as writer:  # openpyxl avoids install issues
+with pd.ExcelWriter(excel_buffer, engine="xlsxwriter") as writer:
+    # Sheet 1: BuyingRules summary
     combined_df.to_excel(writer, index=False, sheet_name="BuyingRules")
+    
+    # Sheet 2: Variables & Constants
+    params = {
+        "Lead Time (days)": lead_time_days,
+        "Delivery Buffer (days)": delivery_buffer,
+        "Economic Batch Quantity (EBQ)": ebq,
+        "Pan Quantity": pan_qty,
+        "Fixed Time Period (business days)": fixed_time_days,
+        "First Shortage Date": start_shortage_date.strftime("%Y-%m-%d"),
+        "Yearly A/C Demand": yearly_ac_demand,
+        "Quantity per A/C": qty_per_ac,
+        "Buyer Rate ($/hr)": buyer_rate,
+        "Time per PO (hrs)": time_per_po,
+        "Part Cost ($/unit)": part_price,
+    }
+    params_df = pd.DataFrame(list(params.items()), columns=["Parameter", "Value"])
+    params_df.to_excel(writer, index=False, sheet_name="Variables_Constants")
 
 st.download_button(
     label="Download as CSV",
