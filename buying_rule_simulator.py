@@ -126,51 +126,91 @@ for rule, qty in rules.items():
 
 combined_df = pd.DataFrame(combined_data)
 
-# --- Layout: Table center, definitions on right ---
-col1, col2 = st.columns([3, 1])
+# --- Tabs ---
+tab1, tab2 = st.tabs(["📊 Simulator", "📘 Rule Reference"])
 
-with col1:
-    st.header("📊 Buying Rule Summary")
-    st.dataframe(combined_df, use_container_width=True)
+# --- Tab 1: Simulator ---
+with tab1:
+    col1, col2 = st.columns([3, 1])
+    with col1:
+        st.header("📊 Combined Buying Rule Summary")
+        st.dataframe(combined_df, use_container_width=True)
+    with col2:
+        st.header("📘 Rule Definitions")
+        selected_rule = st.selectbox("Pick a rule:", list(rule_definitions.keys()))
+        st.info(f"**{selected_rule}**: {rule_definitions[selected_rule]}")
 
-with col2:
-    st.header("📘 Rule Definitions")
-    selected_rule = st.selectbox("Pick a rule:", list(rule_definitions.keys()))
-    st.info(f"**{selected_rule}**: {rule_definitions[selected_rule]}")
+    # --- Downloads ---
+    st.subheader("⬇️ Download Results")
+    csv = combined_df.to_csv(index=False).encode("utf-8")
+    excel_buffer = io.BytesIO()
+    with pd.ExcelWriter(excel_buffer, engine="xlsxwriter") as writer:
+        combined_df.to_excel(writer, index=False, sheet_name="BuyingRules")
+        params = {
+            "Lead Time (days)": lead_time_days,
+            "Delivery Buffer (days)": delivery_buffer,
+            "Economic Batch Quantity (EBQ)": ebq,
+            "Pan Quantity": pan_qty,
+            "Fixed Time Period (business days)": fixed_time_days,
+            "First Shortage Date": start_shortage_date.strftime("%Y-%m-%d"),
+            "Yearly A/C Demand": yearly_ac_demand,
+            "Quantity per A/C": qty_per_ac,
+            "Buyer Rate ($/hr)": buyer_rate,
+            "Time per PO (hrs)": time_per_po,
+            "Part Cost ($/unit)": part_price,
+        }
+        params_df = pd.DataFrame(list(params.items()), columns=["Parameter", "Value"])
+        params_df.to_excel(writer, index=False, sheet_name="Variables_Constants")
 
-# --- Download buttons ---
-st.subheader("⬇️ Download Results")
-csv = combined_df.to_csv(index=False).encode("utf-8")
+    st.download_button(
+        label="Download as CSV",
+        data=csv,
+        file_name="BuyingRulesSummary.csv",
+        mime="text/csv"
+    )
+    st.download_button(
+        label="Download as Excel",
+        data=excel_buffer.getvalue(),
+        file_name="BuyingRulesSummary.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
 
-excel_buffer = io.BytesIO()
-with pd.ExcelWriter(excel_buffer, engine="xlsxwriter") as writer:
-    combined_df.to_excel(writer, index=False, sheet_name="BuyingRules")
-    params = {
-        "Lead Time (days)": lead_time_days,
-        "Delivery Buffer (days)": delivery_buffer,
-        "Economic Batch Quantity (EBQ)": ebq,
-        "Pan Quantity": pan_qty,
-        "Fixed Time Period (business days)": fixed_time_days,
-        "First Shortage Date": start_shortage_date.strftime("%Y-%m-%d"),
-        "Yearly A/C Demand": yearly_ac_demand,
-        "Quantity per A/C": qty_per_ac,
-        "Buyer Rate ($/hr)": buyer_rate,
-        "Time per PO (hrs)": time_per_po,
-        "Part Cost ($/unit)": part_price,
-    }
-    params_df = pd.DataFrame(list(params.items()), columns=["Parameter", "Value"])
-    params_df.to_excel(writer, index=False, sheet_name="Variables_Constants")
+# --- Tab 2: Rule Reference ---
+with tab2:
+    st.header("📘 SYSPRO Buying Rules – Summary Table")
 
-st.download_button(
-    label="Download as CSV",
-    data=csv,
-    file_name="BuyingRulesSummary.csv",
-    mime="text/csv"
-)
+    summary_data = [
+        ["A", "Lot for Lot", "Orders exactly the shortage qty (or MOQ).", "Low inventory holding.", "Very high PO frequency, heavy admin."],
+        ["B", "Multiples of EBQ", "Shortage rounded up to next EBQ multiple.", "Efficient batching, fewer POs.", "May over-order slightly."],
+        ["C", "Fixed Time Period", "Combine shortages in a time window into one order.", "Matches time buckets, reduces noise.", "May mismatch if demand shifts."],
+        ["D", "Order to Max if Shortage", "Fills shortage + tops up to max level.", "Very few POs.", "High holding cost."],
+        ["E", "Order to Max if < Min", "If stock < min, top up to max.", "Safety buffer guaranteed.", "Can create excess inventory."],
+        ["F", "Multiples of Pan", "Same as EBQ but pan size.", "Aligns to pan sizes.", "Over-order risk if demand < pan."],
+        ["G", "Multiple EBQ Lots", "Creates multiple EBQ orders.", "Respects EBQ constraints.", "Many PO lines."],
+        ["H", "Multiple Pan Lots", "Same as G but pan size.", "Pan alignment.", "High admin overhead."],
+        ["I", "Min of EBQ", "Shortage or EBQ (whichever is larger).", "Prevents tiny orders.", "Still frequent if lumpy demand."],
+        ["J", "Min of Pan", "Same as I but pan size.", "Matches pan rules.", "Same as I."],
+        ["K", "Mult EBQ + Fixed Time", "Combine shortages, round up to EBQ.", "Balanced time + batching.", "Possible over-ordering."],
+        ["L", "Mult Pan + Fixed Time", "Same as K but pan size.", "Smooth production cycles.", "Same limitation as K."],
+        ["M", "Mult EBQ Lots + Fixed Time", "Combine shortages, split into EBQ lots.", "Predictable cycle.", "Many PO lines per bucket."],
+        ["N", "Mult Pan Lots + Fixed Time", "Same as M but pan.", "Pan + time aligned.", "High admin overhead."],
+        ["O", "Min EBQ + Mult of Pan", "At least EBQ, remainder in pan multiples.", "Handles mixed demand well.", "Logic complexity."],
+        ["P", "Suppress MRP Ordering", "No auto replenishment.", "Manual control only.", "Stockout risk."],
+        ["Q", "Apply Warehouse Policy", "Warehouse-defined order rules.", "Flexibility per site.", "Setup complexity."]
+    ]
+    st.table(pd.DataFrame(summary_data, columns=["Rule", "Name / Description", "How it Works", "Pros", "Cons"]))
 
-st.download_button(
-    label="Download as Excel",
-    data=excel_buffer.getvalue(),
-    file_name="BuyingRulesSummary.xlsx",
-    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-)
+    st.markdown("### 🛠️ How to Use This")
+    st.markdown("""
+    - **A (Lot for Lot):** Best when first implementing MRP.  
+    - **B, C, K, L:** Good balance between batch efficiency and fewer POs.  
+    - **D, E:** Use if you want fewer POs but can tolerate high inventory.  
+    - **G, H, M, N:** Careful – can generate too many PO lines.  
+    - **O:** Flexible for mixed demand patterns.  
+    - **P:** Manual control – use for by-products/non-critical.  
+    - **Q:** Best if warehouses need flexibility with local policies.  
+    """)
+
+    st.markdown("### 📖 Full Rule Explanations")
+    for r, desc in rule_definitions.items():
+        st.markdown(f"**{r}** – {desc}")
