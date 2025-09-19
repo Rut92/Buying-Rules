@@ -134,7 +134,7 @@ tab1, tab2 = st.tabs(["📊 Simulator", "📘 Rule Reference"])
 
 # --- Tab 1: Simulator ---
 with tab1:
-    st.header("📊 Combined Buying Rule Summary")
+    st.header("📊 Buying Rule Summary")
 
     # Force text wrapping
     st.markdown("""
