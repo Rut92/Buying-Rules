@@ -45,8 +45,8 @@ with col1:
 with col2:
     qty_per_ac = st.number_input("Quantity per A/C", value=2, min_value=1, key="qty_per_ac")
 
-# Derived weekly demand
-weekly_demand = round(yearly_ac_demand / 52, 2)
+# Derived weekly demand (always integer for PO calcs)
+weekly_demand = math.ceil(yearly_ac_demand / 52)
 st.markdown(f"➡️ Calculated **Weekly Demand = {weekly_demand} pcs** (from {yearly_ac_demand} yearly / 52 weeks)")
 
 # --- Rule Definitions Section ---
@@ -54,11 +54,21 @@ st.header("📘 Buying Rule Definitions")
 selected_rule = st.selectbox("Select a Buying Rule to view its definition", list(rule_definitions.keys()))
 st.info(f"**{selected_rule}**: {rule_definitions[selected_rule]}")
 
-# --- Quantities for Rules A–Q ---
+# --- Helper: Generate 3 PO Dates ---
+def get_po_dates(start_date, delivery_buffer):
+    dates = []
+    shortage_date = start_date
+    for _ in range(3):
+        po_date = shortage_date - timedelta(days=delivery_buffer)
+        dates.append(po_date.strftime("%Y-%m-%d"))
+        shortage_date += timedelta(weeks=4)  # assume monthly cycle
+    return ", ".join(dates)
+
+# --- Quantities for Rules A–Q (rounded to integers) ---
 rules = {
     "A": weekly_demand,
     "B": ebq,
-    "C": (fixed_time_days // 5) * weekly_demand,
+    "C": math.ceil((fixed_time_days // 5) * weekly_demand),
     "D": 100 + weekly_demand,
     "E": 200 - 12,
     "F": pan_qty,
@@ -70,7 +80,7 @@ rules = {
     "L": pan_qty,
     "M": math.ceil((weekly_demand * 2 + 1) / ebq) * ebq,
     "N": math.ceil((weekly_demand * 2 + 1) / pan_qty) * pan_qty,
-    "O": ebq + math.ceil((weekly_demand * 2 + 3 - ebq) / pan_qty) * pan_qty,
+    "O": ebq + math.ceil(max(0, (weekly_demand * 2 + 3 - ebq)) / pan_qty) * pan_qty,
     "P": 0,
     "Q": 0
 }
@@ -97,6 +107,7 @@ for rule, qty in rules.items():
             "Description": rule_definitions.get(rule, ""),
             "Example Order Qty": 0,
             "POs/year": 0,
+            "PO Dates (next 3)": "-",
             "Holding Cost/year": "$0",
             "Buyer Cost/year": "$0",
             "Total Annual Cost": "$0",
@@ -120,11 +131,12 @@ for rule, qty in rules.items():
     combined_data.append({
         "Rule": rule,
         "Description": rule_definitions.get(rule, ""),
-        "Example Order Qty": f"{qty} pcs",
-        "POs/year": orders_per_year,
-        "Holding Cost/year": f"${holding_cost:,.0f}",
-        "Buyer Cost/year": f"${buyer_cost:,.0f}",
-        "Total Annual Cost": f"**${total_cost:,.0f}**",
+        "Example Order Qty": f"{int(qty)} pcs",
+        "POs/year": int(orders_per_year),
+        "PO Dates (next 3)": get_po_dates(start_shortage_date, delivery_buffer),
+        "Holding Cost/year": f"${int(holding_cost):,}",
+        "Buyer Cost/year": f"${int(buyer_cost):,}",
+        "Total Annual Cost": f"**${int(total_cost):,}**",
         "Notes": notes
     })
 
@@ -137,7 +149,7 @@ st.dataframe(combined_df)
 st.subheader("⬇️ Download Results")
 csv = combined_df.to_csv(index=False).encode('utf-8')
 excel_buffer = io.BytesIO()
-with pd.ExcelWriter(excel_buffer, engine='xlsxwriter') as writer:
+with pd.ExcelWriter(excel_buffer, engine='openpyxl') as writer:  # openpyxl avoids install issues
     combined_df.to_excel(writer, index=False, sheet_name="BuyingRules")
 
 st.download_button(
