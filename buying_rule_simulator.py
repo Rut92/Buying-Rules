@@ -135,10 +135,6 @@ with tab1:
     with col1:
         st.header("📊 Combined Buying Rule Summary")
         st.dataframe(combined_df, use_container_width=True)
-    with col2:
-        st.header("📘 Rule Definitions")
-        selected_rule = st.selectbox("Pick a rule:", list(rule_definitions.keys()))
-        st.info(f"**{selected_rule}**: {rule_definitions[selected_rule]}")
 
     # --- Downloads ---
     st.subheader("⬇️ Download Results")
