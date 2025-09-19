@@ -131,7 +131,19 @@ tab1, tab2 = st.tabs(["📊 Simulator", "📘 Rule Reference"])
 
 # --- Tab 1: Simulator ---
 with tab1:
-    st.header("📊 Combined Buying Rule Summary")
+    st.header("📊 Buying Rule Summary")
+
+    # Force text wrapping in table
+    st.markdown("""
+        <style>
+        .dataframe td {
+            white-space: normal !important;
+            word-wrap: break-word !important;
+            max-width: 300px;
+        }
+        </style>
+    """, unsafe_allow_html=True)
+    
     st.dataframe(combined_df, use_container_width=True)
     
     # --- Downloads ---
