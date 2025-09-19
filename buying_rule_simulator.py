@@ -131,11 +131,9 @@ tab1, tab2 = st.tabs(["📊 Simulator", "📘 Rule Reference"])
 
 # --- Tab 1: Simulator ---
 with tab1:
-    col1, col2 = st.columns([3, 1])
-    with col1:
-        st.header("📊 Combined Buying Rule Summary")
-        st.dataframe(combined_df, use_container_width=True)
-
+    st.header("📊 Combined Buying Rule Summary")
+    st.dataframe(combined_df, use_container_width=True)
+    
     # --- Downloads ---
     st.subheader("⬇️ Download Results")
     csv = combined_df.to_csv(index=False).encode("utf-8")
