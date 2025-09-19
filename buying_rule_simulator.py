@@ -128,6 +128,52 @@ for rule, qty in rules.items():
             "No auto ordering" if rule in ["P","Q"] else \
             "High inventory"
 
+    # --- Cost Model Inputs ---
+    st.header("⚙️ Cost Model Parameters")
+    
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        part_price = st.number_input("Part Price ($/unit)", value=50, min_value=1)
+    with col2:
+        buyer_rate = st.number_input("Buyer Rate ($/hour)", value=35, min_value=1)
+    with col3:
+        time_per_po = st.number_input("Time per PO (hours)", value=0.5, step=0.1)
+    
+    cost_per_po = buyer_rate * time_per_po
+
+# --- Summary Cost/Efficiency Table ---
+summary_data = []
+
+for rule, qty in rules.items():
+    if qty <= 0:
+        summary_data.append({
+            "Rule": rule,
+            "Description": rule_definitions.get(rule, ""),
+            "Order Qty (per shortage)": 0,
+            "POs/year": 0,
+            "Holding Cost/year": "$0",
+            "Buyer Cost/year": "$0",
+            "Total Annual Cost": "$0",
+            "Notes": "No auto ordering (manual)"
+        })
+        continue
+
+    # Annual demand
+    annual_demand = weekly_demand * 52
+    orders_per_year = math.ceil(annual_demand / qty)
+
+    # Costs
+    avg_inventory = qty / 2
+    holding_cost = avg_inventory * part_price
+    buyer_cost = orders_per_year * cost_per_po
+    total_cost = holding_cost + buyer_cost
+
+    # Notes
+    notes = "Balanced" if rule in ["B","C","F","G","H","I","J","K","L","M","N","O"] else \
+            "High PO load" if rule == "A" else \
+            "No auto ordering" if rule in ["P","Q"] else \
+            "High inventory"
+
     summary_data.append({
         "Rule": rule,
         "Description": rule_definitions.get(rule, ""),
