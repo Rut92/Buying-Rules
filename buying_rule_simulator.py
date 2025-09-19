@@ -130,7 +130,7 @@ combined_df = pd.DataFrame(combined_data)
 col1, col2 = st.columns([3, 1])
 
 with col1:
-    st.header("📊 Combined Buying Rule Summary")
+    st.header("📊 Buying Rule Summary")
     st.dataframe(combined_df, use_container_width=True)
 
 with col2:
