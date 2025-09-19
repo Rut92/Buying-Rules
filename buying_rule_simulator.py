@@ -26,33 +26,27 @@ rule_definitions = {
 }
 
 # --- Streamlit UI ---
-st.title("SYSPRO Buying Rule Simulator")
+st.set_page_config(page_title="SYSPRO Buying Rule Simulator", layout="wide")
+st.title("✈️ SYSPRO Buying Rule Simulator")
 
-# Sidebar inputs for PO simulation
-st.sidebar.header("🔧 Simulation Parameters")
+# Sidebar: Inputs
+st.sidebar.header("🔧 Input Variables & Constants")
 lead_time_days = st.sidebar.number_input("Lead Time (days)", value=80, min_value=1)
 delivery_buffer = st.sidebar.number_input("Delivery Buffer (days)", value=15, min_value=1)
 ebq = st.sidebar.number_input("Economic Batch Quantity (EBQ)", value=10, min_value=1)
 pan_qty = st.sidebar.number_input("Pan Quantity", value=10, min_value=1)
 fixed_time_days = st.sidebar.number_input("Fixed Time Period (business days)", value=20, min_value=5)
 start_shortage_date = st.sidebar.date_input("First Shortage Date", value=datetime(2026, 3, 20))
+yearly_ac_demand = st.sidebar.number_input("Yearly A/C Demand (pcs)", value=100, min_value=1, key="yearly_demand")
+qty_per_ac = st.sidebar.number_input("Quantity per A/C", value=2, min_value=1, key="qty_per_ac")
 
-# --- Demand Parameters ---
-st.header("📦 Demand Parameters")
-col1, col2 = st.columns(2)
-with col1:
-    yearly_ac_demand = st.number_input("Yearly A/C Demand (pcs)", value=100, min_value=1, key="yearly_demand")
-with col2:
-    qty_per_ac = st.number_input("Quantity per A/C", value=2, min_value=1, key="qty_per_ac")
+# Constants
+buyer_rate = st.sidebar.number_input("Buyer Rate ($/hr)", value=35, min_value=1)
+time_per_po = st.sidebar.number_input("Time per PO (hrs)", value=0.5, min_value=0.1, step=0.1)
+part_price = st.sidebar.number_input("Part Cost ($/unit)", value=50, min_value=1)
 
-# Derived weekly demand (always integer for PO calcs)
+# Derived weekly demand
 weekly_demand = math.ceil(yearly_ac_demand / 52)
-st.markdown(f"➡️ Calculated **Weekly Demand = {weekly_demand} pcs** (from {yearly_ac_demand} yearly / 52 weeks)")
-
-# --- Rule Definitions Section ---
-st.header("📘 Buying Rule Definitions")
-selected_rule = st.selectbox("Select a Buying Rule to view its definition", list(rule_definitions.keys()))
-st.info(f"**{selected_rule}**: {rule_definitions[selected_rule]}")
 
 # --- Helper: Generate 3 PO Dates with Qty ---
 def get_po_schedule(start_date, delivery_buffer, qty):
@@ -62,9 +56,9 @@ def get_po_schedule(start_date, delivery_buffer, qty):
         po_date = shortage_date - timedelta(days=delivery_buffer)
         rows.append(f"{po_date.strftime('%Y-%m-%d')} → {int(qty)} pcs")
         shortage_date += timedelta(weeks=4)  # assume monthly cycle
-    return "\n".join(rows)  # stacked vertically
+    return "\n".join(rows)
 
-# --- Quantities for Rules A–Q (rounded to integers) ---
+# --- Quantities for Rules A–Q ---
 rules = {
     "A": weekly_demand,
     "B": ebq,
@@ -85,21 +79,11 @@ rules = {
     "Q": 0
 }
 
-# --- Constants for Cost Model ---
-st.subheader("Constants (fixed values)")
-st.markdown("""
-- **Buyer Price:** $35/hour (≈ $17.50 per PO at 0.5 hr/PO)  
-- **Part Cost:** $50/unit  
-""")
-
-buyer_rate = 35
-time_per_po = 0.5
-part_price = 50
+# --- Cost model constants ---
 cost_per_po = buyer_rate * time_per_po
 
-# --- Combined Summary Table ---
+# --- Build Combined Summary ---
 combined_data = []
-
 for rule, qty in rules.items():
     if qty <= 0:
         combined_data.append({
@@ -136,31 +120,31 @@ for rule, qty in rules.items():
         "PO Schedule (next 3)": get_po_schedule(start_shortage_date, delivery_buffer, qty),
         "Holding Cost/year": f"${int(holding_cost):,}",
         "Buyer Cost/year": f"${int(buyer_cost):,}",
-        "Total Annual Cost": f"**${int(total_cost):,}**",
+        "Total Annual Cost": f"${int(total_cost):,}",
         "Notes": notes
     })
 
 combined_df = pd.DataFrame(combined_data)
 
-st.header("📊 Combined Buying Rule Summary")
-st.dataframe(combined_df)
+# --- Layout: Table center, definitions on right ---
+col1, col2 = st.columns([3, 1])
 
-# --- Download Buttons ---
+with col1:
+    st.header("📊 Combined Buying Rule Summary")
+    st.dataframe(combined_df, use_container_width=True)
+
+with col2:
+    st.header("📘 Rule Definitions")
+    selected_rule = st.selectbox("Pick a rule:", list(rule_definitions.keys()))
+    st.info(f"**{selected_rule}**: {rule_definitions[selected_rule]}")
+
+# --- Download buttons ---
 st.subheader("⬇️ Download Results")
+csv = combined_df.to_csv(index=False).encode("utf-8")
 
-# Remove bold formatting for cost values
-combined_df["Total Annual Cost"] = combined_df["Total Annual Cost"].str.replace("**", "")
-
-# CSV export
-csv = combined_df.to_csv(index=False).encode('utf-8')
-
-# Excel export with 2 sheets
 excel_buffer = io.BytesIO()
 with pd.ExcelWriter(excel_buffer, engine="xlsxwriter") as writer:
-    # Sheet 1: BuyingRules summary
     combined_df.to_excel(writer, index=False, sheet_name="BuyingRules")
-    
-    # Sheet 2: Variables & Constants
     params = {
         "Lead Time (days)": lead_time_days,
         "Delivery Buffer (days)": delivery_buffer,
