@@ -30,20 +30,23 @@ st.set_page_config(page_title="SYSPRO Buying Rule Simulator", layout="wide")
 st.title("✈️ SYSPRO Buying Rule Simulator")
 
 # Sidebar: Inputs
-st.sidebar.header("🔧 Input Variables & Constants")
+st.sidebar.header("🔧 Variables")
 lead_time_days = st.sidebar.number_input("Lead Time (days)", value=80, min_value=1)
-delivery_buffer = st.sidebar.number_input("Delivery Buffer (days)", value=15, min_value=1)
 ebq = st.sidebar.number_input("Economic Batch Quantity (EBQ)", value=10, min_value=1)
 pan_qty = st.sidebar.number_input("Pan Quantity", value=10, min_value=1)
 fixed_time_days = st.sidebar.number_input("Fixed Time Period (business days)", value=20, min_value=5)
 start_shortage_date = st.sidebar.date_input("First Shortage Date", value=datetime(2026, 3, 20))
 yearly_ac_demand = st.sidebar.number_input("Yearly A/C Demand (pcs)", value=100, min_value=1, key="yearly_demand")
 qty_per_ac = st.sidebar.number_input("Quantity per A/C", value=2, min_value=1, key="qty_per_ac")
-
-# Constants
-buyer_rate = st.sidebar.number_input("Buyer Rate ($/hr)", value=35, min_value=1)
 time_per_po = st.sidebar.number_input("Time per PO (hrs)", value=0.5, min_value=0.1, step=0.1)
-part_price = st.sidebar.number_input("Part Cost ($/unit)", value=50, min_value=1)
+
+st.sidebar.header("📌 Constants")
+delivery_buffer = 15
+buyer_rate = 35
+part_price = 50
+st.sidebar.write(f"Delivery Buffer (days): **{delivery_buffer}**")
+st.sidebar.write(f"Buyer Rate: **${buyer_rate}/hr**")
+st.sidebar.write(f"Part Cost: **${part_price}/unit**")
 
 # Derived weekly demand
 weekly_demand = math.ceil(yearly_ac_demand / 52)
@@ -131,9 +134,9 @@ tab1, tab2 = st.tabs(["📊 Simulator", "📘 Rule Reference"])
 
 # --- Tab 1: Simulator ---
 with tab1:
-    st.header("📊 Buying Rule Summary")
+    st.header("📊 Combined Buying Rule Summary")
 
-    # Force text wrapping in table
+    # Force text wrapping
     st.markdown("""
         <style>
         .dataframe td {
@@ -143,9 +146,9 @@ with tab1:
         }
         </style>
     """, unsafe_allow_html=True)
-    
+
     st.dataframe(combined_df, use_container_width=True)
-    
+
     # --- Downloads ---
     st.subheader("⬇️ Download Results")
     csv = combined_df.to_csv(index=False).encode("utf-8")
@@ -168,17 +171,12 @@ with tab1:
         params_df = pd.DataFrame(list(params.items()), columns=["Parameter", "Value"])
         params_df.to_excel(writer, index=False, sheet_name="Variables_Constants")
 
+    st.download_button("Download as CSV", csv, "BuyingRulesSummary.csv", "text/csv")
     st.download_button(
-        label="Download as CSV",
-        data=csv,
-        file_name="BuyingRulesSummary.csv",
-        mime="text/csv"
-    )
-    st.download_button(
-        label="Download as Excel",
-        data=excel_buffer.getvalue(),
-        file_name="BuyingRulesSummary.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        "Download as Excel",
+        excel_buffer.getvalue(),
+        "BuyingRulesSummary.xlsx",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     )
 
 # --- Tab 2: Rule Reference ---
@@ -204,7 +202,16 @@ with tab2:
         ["P", "Suppress MRP Ordering", "No auto replenishment.", "Manual control only.", "Stockout risk."],
         ["Q", "Apply Warehouse Policy", "Warehouse-defined order rules.", "Flexibility per site.", "Setup complexity."]
     ]
-    st.table(pd.DataFrame(summary_data, columns=["Rule", "Name / Description", "How it Works", "Pros", "Cons"]))
+    st.markdown("""
+        <style>
+        .dataframe td {
+            white-space: normal !important;
+            word-wrap: break-word !important;
+            max-width: 250px;
+        }
+        </style>
+    """, unsafe_allow_html=True)
+    st.dataframe(pd.DataFrame(summary_data, columns=["Rule", "Name / Description", "How it Works", "Pros", "Cons"]), use_container_width=True)
 
     st.markdown("### 🛠️ How to Use This")
     st.markdown("""
@@ -217,6 +224,7 @@ with tab2:
     - **Q:** Best if warehouses need flexibility with local policies.  
     """)
 
-    st.markdown("### 📖 Full Rule Explanations")
-    for r, desc in rule_definitions.items():
-        st.markdown(f"**{r}** – {desc}")
+    with st.expander("📖 Full Rule Explanations (click to expand)"):
+        for r, desc in rule_definitions.items():
+            st.markdown(f"**{r}** – {desc}")
+
