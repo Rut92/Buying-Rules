@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime, timedelta
 import math
+import io
 
 # --- Buying Rule Definitions (A–Q) ---
 rule_definitions = {
@@ -53,20 +54,6 @@ st.header("📘 Buying Rule Definitions")
 selected_rule = st.selectbox("Select a Buying Rule to view its definition", list(rule_definitions.keys()))
 st.info(f"**{selected_rule}**: {rule_definitions[selected_rule]}")
 
-# --- Helper: Generate 3 PO entries ---
-def generate_po_entries(rule_code, qty):
-    rows = []
-    shortage_date = start_shortage_date
-    for _ in range(3):
-        po_date = shortage_date - timedelta(days=delivery_buffer)
-        rows.append({
-            "Buying Rule": rule_code,
-            "PO Date": po_date.strftime("%Y-%m-%d"),
-            "Order Qty": qty
-        })
-        shortage_date += timedelta(weeks=4)  # assume monthly cycle
-    return rows
-
 # --- Quantities for Rules A–Q ---
 rules = {
     "A": weekly_demand,
@@ -88,16 +75,6 @@ rules = {
     "Q": 0
 }
 
-# --- Simulation Results ---
-st.header("📊 PO Simulation Results")
-all_entries = []
-for r, q in rules.items():
-    if q > 0:
-        all_entries.extend(generate_po_entries(r, q))
-
-df = pd.DataFrame(all_entries)
-st.dataframe(df)
-
 # --- Constants for Cost Model ---
 st.subheader("Constants (fixed values)")
 st.markdown("""
@@ -110,15 +87,15 @@ time_per_po = 0.5
 part_price = 50
 cost_per_po = buyer_rate * time_per_po
 
-# --- Summary Cost/Efficiency Table ---
-summary_data = []
+# --- Combined Summary Table ---
+combined_data = []
 
 for rule, qty in rules.items():
     if qty <= 0:
-        summary_data.append({
+        combined_data.append({
             "Rule": rule,
             "Description": rule_definitions.get(rule, ""),
-            "Order Qty (per shortage)": 0,
+            "Example Order Qty": 0,
             "POs/year": 0,
             "Holding Cost/year": "$0",
             "Buyer Cost/year": "$0",
@@ -140,10 +117,10 @@ for rule, qty in rules.items():
             "No auto ordering" if rule in ["P","Q"] else \
             "High inventory"
 
-    summary_data.append({
+    combined_data.append({
         "Rule": rule,
         "Description": rule_definitions.get(rule, ""),
-        "Order Qty (per shortage)": f"{qty} pcs",
+        "Example Order Qty": f"{qty} pcs",
         "POs/year": orders_per_year,
         "Holding Cost/year": f"${holding_cost:,.0f}",
         "Buyer Cost/year": f"${buyer_cost:,.0f}",
@@ -151,7 +128,28 @@ for rule, qty in rules.items():
         "Notes": notes
     })
 
-summary_df = pd.DataFrame(summary_data)
+combined_df = pd.DataFrame(combined_data)
 
-st.header("📊 Summary of Costs & Efficiency")
-st.dataframe(summary_df)
+st.header("📊 Combined Buying Rule Summary")
+st.dataframe(combined_df)
+
+# --- Download Buttons ---
+st.subheader("⬇️ Download Results")
+csv = combined_df.to_csv(index=False).encode('utf-8')
+excel_buffer = io.BytesIO()
+with pd.ExcelWriter(excel_buffer, engine='xlsxwriter') as writer:
+    combined_df.to_excel(writer, index=False, sheet_name="BuyingRules")
+
+st.download_button(
+    label="Download as CSV",
+    data=csv,
+    file_name="BuyingRulesSummary.csv",
+    mime="text/csv"
+)
+
+st.download_button(
+    label="Download as Excel",
+    data=excel_buffer.getvalue(),
+    file_name="BuyingRulesSummary.xlsx",
+    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+)
