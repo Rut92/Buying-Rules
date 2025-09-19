@@ -29,13 +29,24 @@ st.title("SYSPRO Buying Rule Simulator")
 
 # Sidebar inputs for PO simulation
 st.sidebar.header("🔧 Simulation Parameters")
-weekly_demand = st.sidebar.number_input("Weekly Need (pcs)", value=2, min_value=1)
 lead_time_days = st.sidebar.number_input("Lead Time (days)", value=80, min_value=1)
 delivery_buffer = st.sidebar.number_input("Delivery Buffer (days)", value=15, min_value=1)
 ebq = st.sidebar.number_input("Economic Batch Quantity (EBQ)", value=10, min_value=1)
 pan_qty = st.sidebar.number_input("Pan Quantity", value=10, min_value=1)
 fixed_time_days = st.sidebar.number_input("Fixed Time Period (business days)", value=20, min_value=5)
 start_shortage_date = st.sidebar.date_input("First Shortage Date", value=datetime(2026, 3, 20))
+
+# --- Demand Parameters ---
+st.header("📦 Demand Parameters")
+col1, col2 = st.columns(2)
+with col1:
+    yearly_ac_demand = st.number_input("Yearly A/C Demand (pcs)", value=100, min_value=1, key="yearly_demand")
+with col2:
+    qty_per_ac = st.number_input("Quantity per A/C", value=2, min_value=1, key="qty_per_ac")
+
+# Derived weekly demand
+weekly_demand = round(yearly_ac_demand / 52, 2)
+st.markdown(f"➡️ Calculated **Weekly Demand = {weekly_demand} pcs** (from {yearly_ac_demand} yearly / 52 weeks)")
 
 # --- Rule Definitions Section ---
 st.header("📘 Buying Rule Definitions")
@@ -87,17 +98,16 @@ for r, q in rules.items():
 df = pd.DataFrame(all_entries)
 st.dataframe(df)
 
-# --- Cost Model Inputs ---
-st.header("⚙️ Cost Model Parameters")
+# --- Constants for Cost Model ---
+st.subheader("Constants (fixed values)")
+st.markdown("""
+- **Buyer Price:** $35/hour (≈ $17.50 per PO at 0.5 hr/PO)  
+- **Part Cost:** $50/unit  
+""")
 
-col1, col2, col3 = st.columns(3)
-with col1:
-    part_price = st.number_input("Part Price ($/unit)", value=50, min_value=1, key="part_price_cost")
-with col2:
-    buyer_rate = st.number_input("Buyer Rate ($/hour)", value=35, min_value=1, key="buyer_rate_cost")
-with col3:
-    time_per_po = st.number_input("Time per PO (hours)", value=0.5, step=0.1, key="time_per_po_cost")
-
+buyer_rate = 35
+time_per_po = 0.5
+part_price = 50
 cost_per_po = buyer_rate * time_per_po
 
 # --- Summary Cost/Efficiency Table ---
@@ -117,7 +127,7 @@ for rule, qty in rules.items():
         })
         continue
 
-    annual_demand = weekly_demand * 52
+    annual_demand = yearly_ac_demand
     orders_per_year = math.ceil(annual_demand / qty)
 
     avg_inventory = qty / 2
