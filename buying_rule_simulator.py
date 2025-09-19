@@ -86,3 +86,61 @@ for r, q in rules.items():
 
 df = pd.DataFrame(all_entries)
 st.dataframe(df)
+
+# --- Summary Cost/Efficiency Table ---
+
+# Cost assumptions
+part_price = 50        # $/unit
+buyer_rate = 35        # $/hour
+time_per_po = 0.5      # hours
+cost_per_po = buyer_rate * time_per_po
+
+# Calculate summary table
+summary_data = []
+
+for rule, qty in rules.items():
+    if qty <= 0:
+        summary_data.append({
+            "Rule": rule,
+            "Description": rule_definitions.get(rule, ""),
+            "Order Qty (per shortage)": 0,
+            "POs/year": 0,
+            "Holding Cost/year": 0,
+            "Buyer Cost/year": 0,
+            "Total Annual Cost": 0,
+            "Notes": "No auto ordering (manual)"
+        })
+        continue
+
+    # Assume weekly demand = 2 pcs, 52 weeks
+    annual_demand = weekly_demand * 52
+    orders_per_year = math.ceil(annual_demand / qty)
+
+    # Avg inventory = half order qty
+    avg_inventory = qty / 2
+    holding_cost = avg_inventory * part_price
+    buyer_cost = orders_per_year * cost_per_po
+    total_cost = holding_cost + buyer_cost
+
+    # Notes based on rule type
+    notes = "Balanced" if rule in ["B","C","F","G","H","I","J","K","L","M","N","O"] else \
+            "High PO load" if rule == "A" else \
+            "No auto ordering" if rule in ["P","Q"] else \
+            "High inventory"
+
+    summary_data.append({
+        "Rule": rule,
+        "Description": rule_definitions.get(rule, ""),
+        "Order Qty (per shortage)": f"{qty} pcs",
+        "POs/year": orders_per_year,
+        "Holding Cost/year": f"${holding_cost:,.0f}",
+        "Buyer Cost/year": f"${buyer_cost:,.0f}",
+        "Total Annual Cost": f"**${total_cost:,.0f}**",
+        "Notes": notes
+    })
+
+summary_df = pd.DataFrame(summary_data)
+
+st.header("📊 Summary of Costs & Efficiency")
+st.dataframe(summary_df)
+
