@@ -54,15 +54,15 @@ st.header("📘 Buying Rule Definitions")
 selected_rule = st.selectbox("Select a Buying Rule to view its definition", list(rule_definitions.keys()))
 st.info(f"**{selected_rule}**: {rule_definitions[selected_rule]}")
 
-# --- Helper: Generate 3 PO Dates ---
-def get_po_dates(start_date, delivery_buffer):
-    dates = []
+# --- Helper: Generate 3 PO Dates with Qty ---
+def get_po_schedule(start_date, delivery_buffer, qty):
+    rows = []
     shortage_date = start_date
     for _ in range(3):
         po_date = shortage_date - timedelta(days=delivery_buffer)
-        dates.append(po_date.strftime("%Y-%m-%d"))
+        rows.append(f"{po_date.strftime('%Y-%m-%d')} → {int(qty)} pcs")
         shortage_date += timedelta(weeks=4)  # assume monthly cycle
-    return ", ".join(dates)
+    return "\n".join(rows)  # stacked vertically
 
 # --- Quantities for Rules A–Q (rounded to integers) ---
 rules = {
@@ -107,7 +107,7 @@ for rule, qty in rules.items():
             "Description": rule_definitions.get(rule, ""),
             "Example Order Qty": 0,
             "POs/year": 0,
-            "PO Dates (next 3)": "-",
+            "PO Schedule (next 3)": "-",
             "Holding Cost/year": "$0",
             "Buyer Cost/year": "$0",
             "Total Annual Cost": "$0",
@@ -133,7 +133,7 @@ for rule, qty in rules.items():
         "Description": rule_definitions.get(rule, ""),
         "Example Order Qty": f"{int(qty)} pcs",
         "POs/year": int(orders_per_year),
-        "PO Dates (next 3)": get_po_dates(start_shortage_date, delivery_buffer),
+        "PO Schedule (next 3)": get_po_schedule(start_shortage_date, delivery_buffer, qty),
         "Holding Cost/year": f"${int(holding_cost):,}",
         "Buyer Cost/year": f"${int(buyer_cost):,}",
         "Total Annual Cost": f"**${int(total_cost):,}**",
